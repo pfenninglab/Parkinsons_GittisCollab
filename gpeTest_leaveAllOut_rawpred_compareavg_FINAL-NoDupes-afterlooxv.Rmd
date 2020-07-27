@@ -1,0 +1,228 @@
+---
+title: "gpeTest"
+author: "Noelle"
+date: "12/3/2019"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+library(kernlab)	
+library(ggplot2)
+
+
+PVFile <- "~/Documents/original_data/firstTwoDataPV_shuffled_withAverages_notLogged.csv"	
+PVData <- data.frame(read.csv(PVFile,stringsAsFactors=F))
+
+XTrainPV <- data.frame(log2(PVData$Duration),PVData$Frequency,PVData$AmpMult)	
+XTrainPVLogged <- data.frame(log2(PVData$Duration),PVData$Frequency,PVData$AmpMult)	
+YTrainPV <- data.frame("ModIn"=PVData$ModIn)
+colnamesPV <- c("Duration","Frequency","AmpMult")
+colnames(XTrainPV) <- colnamesPV
+colnames(XTrainPVLogged) <- colnamesPV
+colnames(YTrainPV) <- c("ModIn")
+
+predsVsActualPV <- data.frame(matrix(ncol=2,nrow=0),stringsAsFactors = F)
+x <- c("Predictions","Actual")
+colnames(predsVsActualPV) <- x
+
+count = 0
+ for (row in 1:nrow(XTrainPV)) {
+  print(count)
+  XTest <- data.frame(XTrainPV[row,]$Duration,XTrainPV[row,]$Frequency,XTrainPV[row,]$AmpMult)
+  YTest <- data.frame(YTrainPV[row,])
+  XTestLogged <- data.frame(XTrainPVLogged[row,]$Duration,XTrainPVLogged[row,]$Frequency,XTrainPVLogged[row,]$AmpMult)
+
+  colnames(XTest) <- c("Duration","Frequency","AmpMult")
+  colnames(XTestLogged) <- c("Duration","Frequency","AmpMult")
+  curDur = XTest$Duration
+  curFreq = XTest$Frequency
+  curAmpMult = XTest$AmpMult
+  
+  delIndices = which((XTrainPV$Frequency==curFreq)&
+                       (XTrainPV$Duration==curDur)&
+                       (XTrainPV$AmpMult==curAmpMult))
+  print(delIndices)
+  curXTrain <- XTrainPVLogged[-c(delIndices),]
+  curYTrain <- YTrainPV[-c(delIndices),]
+
+  polyVarL <- vector("list",0);
+  polyVarL[["degree"]] <- 1;
+  polyVarL[["scale"]] <- 1;
+  polyVarL[["offset"]] <- 1;
+
+  curSingleTestGp <- gausspr(x=curXTrain,
+                            y=curYTrain,
+                            type="regression",
+                            variance.model=TRUE,
+                            kernel=polydot,
+                            kpar=polyVarL)
+  curSingleTestGp
+
+  testPrediction <- predict(curSingleTestGp,XTest)
+
+  predsVsActualPV <- rbind(predsVsActualPV,list(testPrediction[1,1],YTest[1,1]))
+  count = count+1
+ }
+
+
+
+PVData$singleGPpreds = predsVsActualPV[,1]
+
+predsVsActualPV_GP2 <- data.frame(matrix(ncol=2,nrow=0),stringsAsFactors = F)
+x <- c("Predictions","Actual")
+colnames(predsVsActualPV_GP2) <- x
+
+count = 0
+ for (row in 1:nrow(XTrainPV)) {
+  print(count)
+  XTest <- data.frame(XTrainPV[row,]$Duration,XTrainPV[row,]$Frequency,XTrainPV[row,]$AmpMult)
+  YTest <- data.frame(YTrainPV[row,])
+  XTestLogged <- data.frame(XTrainPVLogged[row,]$Duration,XTrainPVLogged[row,]$Frequency,XTrainPVLogged[row,]$AmpMult)
+
+  colnames(XTest) <- c("Duration","Frequency","AmpMult")
+  colnames(XTestLogged) <- c("Duration","Frequency","AmpMult")
+  curDur = XTest$Duration
+  curFreq = XTest$Frequency
+  curAmpMult = XTest$AmpMult
+  
+  delIndices = which((XTrainPV$Frequency==curFreq)&
+                       (XTrainPV$Duration==curDur)&
+                       (XTrainPV$AmpMult==curAmpMult))
+  print(delIndices)
+  curXTrain <- XTrainPVLogged[-c(delIndices),]
+  curYTrain <- YTrainPV[-c(delIndices),]
+
+  polyVarL <- vector("list",0);
+  polyVarL[["degree"]] <- 2;
+  polyVarL[["scale"]] <- 1;
+  polyVarL[["offset"]] <- 1;
+
+  curSingleTestGp <- gausspr(x=curXTrain,
+                            y=curYTrain,
+                            type="regression",
+                            variance.model=TRUE,
+                            kernel=polydot,
+                            kpar=polyVarL)
+  curSingleTestGp
+
+  testPrediction <- predict(curSingleTestGp,XTest)
+
+  predsVsActualPV_GP2 <- rbind(predsVsActualPV_GP2,list(testPrediction[1,1],YTest[1,1]))
+  count = count+1
+ }
+
+PVData$doubleGPpreds = predsVsActualPV_GP2[,1]
+
+```
+
+```{r}
+write.csv(PVData,file="PVData_wGPpredictions.csv",row.names=FALSE)
+```
+
+
+```{r setup, include=FALSE}
+#########
+Lhx6File <- "~/Documents/original_data/firstTwoDataLhx6_shuffled_withAverages_notLogged.csv"	
+Lhx6Data <- read.csv(Lhx6File,stringsAsFactors=F)	
+
+XTrainLhx6 <- data.frame(Lhx6Data$Duration,Lhx6Data$Frequency,Lhx6Data$AmpMult)	
+XTrainLhx6Logged <- data.frame(log2(Lhx6Data$Duration),Lhx6Data$Frequency,Lhx6Data$AmpMult)
+YTrainLhx6 <- data.frame("ModIn"=Lhx6Data$ModIn)
+colnames(XTrainLhx6) <- c("Duration","Frequency","AmpMult")
+colnames(XTrainLhx6Logged) <- c("Duration","Frequency","AmpMult")
+colnames(YTrainLhx6) <- c("ModIn")
+
+predsVsActualLhx6 <- data.frame(matrix(ncol=2,nrow=0),stringsAsFactors = F)
+x <- c("Predictions","Actual")
+colnames(predsVsActualLhx6) <- x
+
+for (row in 1:nrow(XTrainLhx6)) {
+  
+  XTest <- data.frame(XTrainLhx6[row,]$Duration,XTrainLhx6[row,]$Frequency,XTrainLhx6[row,]$AmpMult)
+  XTestLogged <- data.frame(XTrainLhx6Logged[row,]$Duration,XTrainLhx6Logged[row,]$Frequency,XTrainLhx6Logged[row,]$AmpMult)
+  YTest <- data.frame(YTrainLhx6[row,])
+
+  colnames(XTest) <- c("Duration","Frequency","AmpMult")
+  colnames(XTestLogged) <- c("Duration","Frequency","AmpMult")
+  
+  curDur = XTest$Duration
+  curFreq = XTest$Frequency
+  curAmpMult = XTest$AmpMult
+  
+  delIndices = which((XTrainLhx6$Frequency==curFreq)&
+                       (XTrainLhx6$Duration==curDur)&
+                       (XTrainLhx6$AmpMult==curAmpMult))
+  print(delIndices)
+  curXTrain <- XTrainLhx6Logged[-c(delIndices),]
+  curYTrain <- YTrainLhx6[-c(delIndices),]
+
+  polyVarL <- vector("list",0);
+  polyVarL[["degree"]] <- 1;
+  polyVarL[["scale"]] <- 1;
+  polyVarL[["offset"]] <- 1;
+
+  curSingleTestGp <- gausspr(x=curXTrain,
+                            y=curYTrain,
+                            type="regression",
+                            variance.model=TRUE,
+                            kernel=polydot,
+                            kpar=polyVarL)
+  curSingleTestGp
+
+  testPrediction <- predict(curSingleTestGp,XTestLogged)
+  predsVsActualLhx6 <- rbind(predsVsActualLhx6,list(testPrediction[1,1],YTest[1,1]))
+
+ }
+
+Lhx6Data$singleGPpreds = predsVsActualLhx6[,1]
+
+
+predsVsActualLhx6_GP2 <- data.frame(matrix(ncol=2,nrow=0),stringsAsFactors = F)
+x <- c("Predictions","Actual")
+colnames(predsVsActualLhx6_GP2) <- x
+
+for (row in 1:nrow(XTrainLhx6)) {
+  
+  XTest <- data.frame(XTrainLhx6[row,]$Duration,XTrainLhx6[row,]$Frequency,XTrainLhx6[row,]$AmpMult)
+  XTestLogged <- data.frame(XTrainLhx6Logged[row,]$Duration,XTrainLhx6Logged[row,]$Frequency,XTrainLhx6Logged[row,]$AmpMult)
+  YTest <- data.frame(YTrainLhx6[row,])
+
+  colnames(XTest) <- c("Duration","Frequency","AmpMult")
+  colnames(XTestLogged) <- c("Duration","Frequency","AmpMult")
+  
+  curDur = XTest$Duration
+  curFreq = XTest$Frequency
+  curAmpMult = XTest$AmpMult
+  
+  delIndices = which((XTrainLhx6$Frequency==curFreq)&
+                       (XTrainLhx6$Duration==curDur)&
+                       (XTrainLhx6$AmpMult==curAmpMult))
+  print(delIndices)
+  curXTrain <- XTrainLhx6Logged[-c(delIndices),]
+  curYTrain <- YTrainLhx6[-c(delIndices),]
+
+  polyVarL <- vector("list",0);
+  polyVarL[["degree"]] <- 2;
+  polyVarL[["scale"]] <- 1;
+  polyVarL[["offset"]] <- 1;
+
+  curSingleTestGp <- gausspr(x=curXTrain,
+                            y=curYTrain,
+                            type="regression",
+                            variance.model=TRUE,
+                            kernel=polydot,
+                            kpar=polyVarL)
+  curSingleTestGp
+
+  testPrediction <- predict(curSingleTestGp,XTestLogged)
+  predsVsActualLhx6_GP2 <- rbind(predsVsActualLhx6_GP2,list(testPrediction[1,1],YTest[1,1]))
+
+ }
+
+Lhx6Data$doubleGPpreds = predsVsActualLhx6_GP2[,1]
+
+write.csv(Lhx6Data,file="Lhx6Data_wGPpredictions.csv",row.names=FALSE)
+```
+
+
