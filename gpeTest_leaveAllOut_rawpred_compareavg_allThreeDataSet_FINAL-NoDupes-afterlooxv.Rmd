@@ -4,16 +4,23 @@ author: "Noelle"
 date: "12/3/2019"
 output: html_document
 ---
+```{r}
+#This file takes in all data collected, separated by PV and Lhx6, shuffled and duration not logged
+#The data also have a column of the averages of the duplicate responses
+#These input files from
+#"Regressions_LeaveOutCopies_all3DataSets_PredictOnRaw_CompareToAvg-Testing-NoDupes-afterlooxv.ipynb"
+```
 
 
 ```{r setup, include=FALSE}
 library(kernlab)	
 library(ggplot2)
 
-
+#Read in the PV file
 PVFile <- "~/Documents/original_data/allThreeDataPV_shuffled_withAverages_notLogged.csv"	
 PVData <- data.frame(read.csv(PVFile,stringsAsFactors=F))
 
+#separate data into X and Y dataframes
 XTrainPV <- data.frame(log2(PVData$Duration),PVData$Frequency,PVData$AmpMult)	
 XTrainPVLogged <- data.frame(log2(PVData$Duration),PVData$Frequency,PVData$AmpMult)	
 YTrainPV <- data.frame("ModIn"=PVData$ModIn)
@@ -26,19 +33,21 @@ predsVsActualPV <- data.frame(matrix(ncol=2,nrow=0),stringsAsFactors = F)
 x <- c("Predictions","Actual")
 colnames(predsVsActualPV) <- x
 
+#Begin LOOXV with Gaussian Process Regression, linear kernel
 count = 0
  for (row in 1:nrow(XTrainPV)) {
   print(count)
   XTest <- data.frame(XTrainPV[row,]$Duration,XTrainPV[row,]$Frequency,XTrainPV[row,]$AmpMult)
   YTest <- data.frame(YTrainPV[row,])
   XTestLogged <- data.frame(XTrainPVLogged[row,]$Duration,XTrainPVLogged[row,]$Frequency,XTrainPVLogged[row,]$AmpMult)
-
+  
   colnames(XTest) <- c("Duration","Frequency","AmpMult")
   colnames(XTestLogged) <- c("Duration","Frequency","AmpMult")
   curDur = XTest$Duration
   curFreq = XTest$Frequency
   curAmpMult = XTest$AmpMult
   
+  #Hold out all duplicate parameter settings
   delIndices = which((XTrainPV$Frequency==curFreq)&
                        (XTrainPV$Duration==curDur)&
                        (XTrainPV$AmpMult==curAmpMult))
@@ -46,6 +55,7 @@ count = 0
   curXTrain <- XTrainPVLogged[-c(delIndices),]
   curYTrain <- YTrainPV[-c(delIndices),]
 
+  #Set GPR settings
   polyVarL <- vector("list",0);
   polyVarL[["degree"]] <- 1;
   polyVarL[["scale"]] <- 1;
@@ -60,15 +70,17 @@ count = 0
   curSingleTestGp
 
   testPrediction <- predict(curSingleTestGp,XTest)
-
+  
+  #Store the prediction on the left out point
   predsVsActualPV <- rbind(predsVsActualPV,list(testPrediction[1,1],YTest[1,1]))
   count = count+1
  }
 
 
-
+#Store the predictions as aother columns
 PVData$singleGPpreds = predsVsActualPV[,1]
 
+#Repeat above, except now with a polynomial kernel
 predsVsActualPV_GP2 <- data.frame(matrix(ncol=2,nrow=0),stringsAsFactors = F)
 x <- c("Predictions","Actual")
 colnames(predsVsActualPV_GP2) <- x
@@ -93,6 +105,7 @@ count = 0
   curXTrain <- XTrainPVLogged[-c(delIndices),]
   curYTrain <- YTrainPV[-c(delIndices),]
 
+  #The kernel is polynomial this time
   polyVarL <- vector("list",0);
   polyVarL[["degree"]] <- 2;
   polyVarL[["scale"]] <- 1;
@@ -112,17 +125,21 @@ count = 0
   count = count+1
  }
 
+#Store predictions as a column
 PVData$doubleGPpreds = predsVsActualPV_GP2[,1]
 
 ```
 
 ```{r}
+#Write out the GPR predictions into a CSV file for analysis in Python
 write.csv(PVData,file="PVData_wGPpredictions_allThreeDataSets.csv",row.names=FALSE)
 ```
 
 
 ```{r setup, include=FALSE}
 #########
+
+#Repeat the above steps, now for Lhx6 data
 Lhx6File <- "~/Documents/original_data/allThreeDataLhx6_shuffled_withAverages_notLogged.csv"	
 Lhx6Data <- read.csv(Lhx6File,stringsAsFactors=F)	
 
