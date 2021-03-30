@@ -24,12 +24,8 @@ This file was used to generate the artificial data points to test the GP regress
 ## Packages needed
 For Python 3, these packages are needed:
 ### pandas
-### math
 ### numpy
-### sys
 ### sklearn
-### copy
-### xlsxwriter
 ### scipy
 
 For R, these packages are needed (I ran this on R 3.6):
