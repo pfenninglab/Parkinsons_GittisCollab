@@ -32,7 +32,7 @@ For Python 3, these packages are needed:
 ### xlsxwriter
 ### scipy
 
-For R, these packages are needed:
+For R, these packages are needed (I ran this on R 3.6):
 ### kernlab
 ### ggplot2
 
