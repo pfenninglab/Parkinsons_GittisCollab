@@ -19,7 +19,10 @@ This R file was used to train GP regressions on separated all the PV and Lhx6 da
 This file was used to calculate the correlation coefficients between the GP regressions and the averaged actual responses. The input files are generated from "gpeTest_leaveAllOut_rawpred_compareavg_FINAL-NoDupes-afterlooxv.Rmd" and "gpeTest_leaveAllOut_rawpred_compareavg_allThreeDataSet_FINAL-NoDupes-afterlooxv.Rmd".
 
 ### "collectData_AndreasWay.Rmd"
-This file was used to generate the artificial data points to test the GP regressions and see which points they predicted have the largest differences.
+This file was used to generate the artificial data points to test the GP regressions and see which points they predicted have the largest differences, for the first iteration of data. 
+
+### iters12_getpredictions.Rmd"
+This file was used to generate the artificial data points to test the GP regressions and see which points they predicted have the largest differences, for both iterations of data. 
 
 ## Packages needed
 For Python 3, these packages are needed:
