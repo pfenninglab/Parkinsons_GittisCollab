@@ -15,7 +15,7 @@ output: html_document
 library(kernlab)	
 library(ggplot2)
 
-#Read in the PV data file
+#Read in the PV data file, replace the path here with your own path to the file
 PVFile <- "~/Documents/original_data/firstTwoDataPV_shuffled_withAverages_notLogged.csv"	
 PVData <- data.frame(read.csv(PVFile,stringsAsFactors=F))
 
@@ -134,7 +134,7 @@ write.csv(PVData,file="PVData_wGPpredictions.csv",row.names=FALSE)
 
 ```{r setup, include=FALSE}
 
-#Repeat steps above, now for Lhx6 data
+#Repeat steps above, now for Lhx6 data, replace the path below with your own path
 #########
 Lhx6File <- "~/Documents/original_data/firstTwoDataLhx6_shuffled_withAverages_notLogged.csv"	
 Lhx6Data <- read.csv(Lhx6File,stringsAsFactors=F)	

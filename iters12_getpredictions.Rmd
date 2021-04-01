@@ -1,0 +1,219 @@
+---
+title: "generatePredictions_iter3"
+author: "Noelle"
+date: "7/21/2020"
+output: html_document
+---
+```{r setup, include=FALSE}
+library(kernlab)
+library(ggplot2)
+```
+
+
+```{r}
+#### Read in the CSV file with measurements (newer paired measurements) #####
+#Add your own path to line 16
+measureFn <- "Parameter_Combinations_Recollect_082919_and_083019.csv";
+measureF <- read.csv(measureFn,stringsAsFactors=F);
+#print(measureF);
+measureF$mi <- measureF$Modulation.Index;
+
+###added line###
+measureF$Amplitude = measureF$AmpMult
+
+useParamV <- c("Duration","Frequency","AmpMult");
+#response = "Modulation.Index"
+#neuron = "Cell.Type"
+
+measureFL <- vector("list",0); #List containing data frame of measurements
+measureFL[["PV"]] <- measureF[which(measureF$Cell.Type == "PV"),];
+measureFL[["Lhx6"]] <- measureF[which(measureF$Cell.Type == "Lhx6"),];
+
+measureFL[["PV"]][1:5,];
+measureFL[["Lhx6"]][1:5,];
+measureFL[["PV"]]$Duration
+```
+
+```{r}
+#### Read in the CSV file with measurements (original measurement info) #####
+#Add your own path to line 40
+measureOldFn <- "ComputationalStartHere_AP.csv";
+measureOldF <- read.csv(measureOldFn,stringsAsFactors=F);
+measureOldF$mi <- measureOldF$Modulation.Index;
+measureOldF$study <- "wave1";
+measureOldF <- measureOldF[,c(-9,-10,-11,-12)];
+
+measureF$study <- "wave2";
+
+measureF[1:5,];
+measureOldF[1:5,];
+
+#setdiff(colnames(measureOldF),colnames(measureF));
+
+useParamV <- c("Duration","Frequency","AmpMult");
+measureAllF <- rbind(measureOldF,measureF[,colnames(measureOldF)]);
+
+dim(measureAllF);
+
+#measureAllF$study
+```
+
+
+```{r}
+### read in third dataset ###
+#Add  your own path to line 65
+measureThird <- "Pfenning_Data_set_3.csv";
+measureThird <- read.csv(measureThird,stringsAsFactors = F);
+measureThird$mi <- measureThird$Modulation.Index;
+measureThird$study <- "wave3";
+measureThird$Amplitude <- measureThird$AmpMult
+measureThirdAll <- rbind(measureAllF,measureThird[,colnames(measureAllF)])
+```
+
+```{r}
+#randomly shuffle measureThirdAll
+set.seed(3)
+rowIndices = sample(nrow(measureThirdAll))
+measureThirdAll = measureThirdAll[rowIndices,]
+```
+
+```{r}
+
+#Get GP regressions trained on PV and Lhx6
+useWaveV <- c("wave1","wave2");
+useParamV <- c("Duration","Frequency","Amplitude");
+useVarV <- useParamV;
+
+useKernal <- "polydot";
+polyVarL <- vector("list",0);
+polyVarL[["degree"]] <- 2;
+polyVarL[["scale"]] <- 1;
+polyVarL[["offset"]] <- 1;
+
+multTestGpLAllOld <- vector("list",0);
+
+for(curCellType in c("PV","Lhx6")) {
+    
+    useCellTypeV <- c(curCellType);
+
+    #relate mod index to duration in PV cells
+    curMeasureF <- measureThirdAll[which(!is.na(match(measureThirdAll$Cell.Type,useCellTypeV))),];
+    #curMeasureF <- curMeasureF[which(!is.na(match(curMeasureF$study,useWaveV))),];
+    curMeasureF <- curMeasureF[which(!is.na(apply(as.matrix(curMeasureF[,useVarV]),1,sum))),];
+    curMeasureF <- curMeasureF[which(!is.na(curMeasureF[,"Modulation.Index"])),];
+
+    curMeasureF$Duration <- log2(curMeasureF$Duration );
+    
+    MiV <- curMeasureF$Modulation.Index;
+    TestVarM <- as.matrix(curMeasureF[,useVarV]);
+    #colnames(TestVarM) <- "testVar";
+
+    if(useKernal == "polydot") {
+        curMultTestGp <- gausspr(x=TestVarM,
+                                y=MiV,
+                                type="regression", 
+                                variance.model=TRUE,
+                                kernel=useKernal,
+                                kpar=polyVarL);
+    } else {
+        curMultTestGp <- gausspr(x=TestVarM,
+                                y=MiV,
+                                type="regression", 
+                                variance.model=TRUE,
+                                kernel=useKernal);
+    }
+
+    multTestGpLAllOld[[curCellType]] <- curMultTestGp
+    #alpha(curSingleTestGp)
+}
+
+multTestGpLAllOld
+```
+
+```{r}
+PVModelAllOld <- multTestGpLAllOld[["PV"]]
+Lhx6ModelAllOld <- multTestGpLAllOld[["Lhx6"]]
+```
+
+```{r}
+
+###proceed to do predictions###
+
+getBreaks <- function(min,max,scale){
+    numVals <- (max - min)*(1/scale)	
+    x <- c(0:(numVals));	
+    y <- (x * scale) + min;	
+    return(y);	
+}
+
+#include full range Teresa tried
+durationV <- c(getBreaks(0,2500,20),getBreaks(3000,30000,1000));
+freqV <- getBreaks(0,200,5);
+ampV <- getBreaks(0.5,2.5,0.05);	
+
+durationV <- log2(durationV);
+
+iters12_allParams <- data.frame(matrix(ncol=6,nrow=1),stringsAsFactors = F)	
+names(iters12_allParams) <- c("duration","frequency","ampmult","predictionPV","predictionLhx6","difference")
+counter = 1	
+for(curDur in durationV) {	
+  print(counter)
+  counter <- counter+1	
+    for(curFreq in freqV) {	
+        for(curAmp in ampV){	
+            testingVal <- data.frame(curDur,curFreq,curAmp)	
+            predictionPV <- predict(PVModelAllOld,testingVal)	
+            predictionLhx6 <- predict(Lhx6ModelAllOld,testingVal)
+            difference = predictionPV-predictionLhx6
+            iters12_allParams <- rbind(iters12_allParams,
+                                                   list(curDur,curFreq,curAmp,predictionPV,predictionLhx6,difference))	
+        }	
+    }	
+}	
+iters12_allParams <- iters12_allParams[-c(1),]
+write.csv(iters12_allParams,file="iters12_allParams.csv",row.names=FALSE)
+```
+
+```{r}
+#old code, ignore
+# iters12_amp25 <- subset(iters12_allParams, ampmult==2.50,c("duration","frequency","difference"))
+# write.csv(iters12_amp25,file="iters12_amp25.csv",row.names=FALSE)
+# 
+# iters12_amp20 <- subset(iters12_allParams, ampmult==2.00,c("duration","frequency","difference"))
+# write.csv(iters12_amp20,file="iters12_amp20.csv",row.names=FALSE)
+# 
+# iters12_amp15 <- subset(iters12_allParams, ampmult==1.50,c("duration","frequency","difference"))
+# write.csv(iters12_amp15,file="iters12_amp15.csv",row.names=FALSE)
+# 
+# iters12_amp10 <- subset(iters12_allParams, ampmult==1.00,c("duration","frequency","difference"))
+# write.csv(iters12_amp10,file="iters12_amp10.csv",row.names=FALSE)
+# 
+# iters12_amp05 <- subset(iters12_allParams, ampmult==0.50,c("duration","frequency","difference"))
+# write.csv(iters12_amp05,file="iters12_amp05.csv",row.names=FALSE)
+```
+
+```{r}
+#Write out predictions
+# iters12_allParamsName <- "iters12_predictions/iters12_allParams.csv";
+# iters12_allParams <- read.csv(iters12_allParamsName,stringsAsFactors=F);
+# 
+# iters12_allParams_noNans = iters12_allParams[complete.cases(iters12_allParams),]
+# write.csv(iters12_allParams_noNans,file="iters12_allParams_noNans.csv",row.names=FALSE)
+# 
+# iters12_amp25_noNans <- subset(iters12_allParams_noNans, ampmult==2.50,c("duration","frequency","difference"))
+# write.csv(iters12_amp25_noNans,file="iters12_amp25_noNans.csv",row.names=FALSE)
+# 
+# iters12_amp20_noNans <- subset(iters12_allParams_noNans, ampmult==2.00,c("duration","frequency","difference"))
+# write.csv(iters12_amp20_noNans,file="iters12_amp20_noNans.csv",row.names=FALSE)
+# 
+# iters12_amp15_noNans <- subset(iters12_allParams_noNans, ampmult==1.50,c("duration","frequency","difference"))
+# write.csv(iters12_amp15_noNans,file="iters12_amp15_noNans.csv",row.names=FALSE)
+# 
+# iters12_amp10_noNans <- subset(iters12_allParams_noNans, ampmult==1.00,c("duration","frequency","difference"))
+# write.csv(iters12_amp10_noNans,file="iters12_amp10_noNans.csv",row.names=FALSE)
+# 
+# iters12_amp05_noNans <- subset(iters12_allParams_noNans, ampmult==0.50,c("duration","frequency","difference"))
+# write.csv(iters12_amp25_noNans,file="iters12_amp05_noNans.csv",row.names=FALSE)
+```
+```
+
