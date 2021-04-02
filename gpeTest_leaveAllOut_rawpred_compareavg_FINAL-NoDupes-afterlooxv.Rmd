@@ -4,13 +4,18 @@ author: "Noelle"
 date: "12/3/2019"
 output: html_document
 ---
-
+```{r}
+#This file takes in the first data collected, separated by PV and Lhx6, shuffled and duration not logged
+#The data also have a column of the averages of the duplicate responses
+#These input files from
+#"Regressions_LeaveOutCopies_first2DataSets_PredictOnRaw_CompareToAvg-Testing-NoDupes-afterlooxv.ipynb"
+```
 
 ```{r setup, include=FALSE}
 library(kernlab)	
 library(ggplot2)
 
-
+#Read in the PV data file, replace the path here with your own path to the file
 PVFile <- "~/Documents/original_data/firstTwoDataPV_shuffled_withAverages_notLogged.csv"	
 PVData <- data.frame(read.csv(PVFile,stringsAsFactors=F))
 
@@ -26,6 +31,7 @@ predsVsActualPV <- data.frame(matrix(ncol=2,nrow=0),stringsAsFactors = F)
 x <- c("Predictions","Actual")
 colnames(predsVsActualPV) <- x
 
+#Begin LOOXV with GPR linear kernel
 count = 0
  for (row in 1:nrow(XTrainPV)) {
   print(count)
@@ -39,6 +45,7 @@ count = 0
   curFreq = XTest$Frequency
   curAmpMult = XTest$AmpMult
   
+  #Leave out all duplicate parameter settings
   delIndices = which((XTrainPV$Frequency==curFreq)&
                        (XTrainPV$Duration==curDur)&
                        (XTrainPV$AmpMult==curAmpMult))
@@ -46,6 +53,7 @@ count = 0
   curXTrain <- XTrainPVLogged[-c(delIndices),]
   curYTrain <- YTrainPV[-c(delIndices),]
 
+  #The degree is 1 here
   polyVarL <- vector("list",0);
   polyVarL[["degree"]] <- 1;
   polyVarL[["scale"]] <- 1;
@@ -65,10 +73,10 @@ count = 0
   count = count+1
  }
 
-
-
+#Store predictions as a column
 PVData$singleGPpreds = predsVsActualPV[,1]
 
+#Repeat process above, now with a degree of 2 (polynomial kernel)
 predsVsActualPV_GP2 <- data.frame(matrix(ncol=2,nrow=0),stringsAsFactors = F)
 x <- c("Predictions","Actual")
 colnames(predsVsActualPV_GP2) <- x
@@ -86,6 +94,7 @@ count = 0
   curFreq = XTest$Frequency
   curAmpMult = XTest$AmpMult
   
+  #Hold out duplicate parameter settings
   delIndices = which((XTrainPV$Frequency==curFreq)&
                        (XTrainPV$Duration==curDur)&
                        (XTrainPV$AmpMult==curAmpMult))
@@ -112,16 +121,20 @@ count = 0
   count = count+1
  }
 
+#Store predictions as a column
 PVData$doubleGPpreds = predsVsActualPV_GP2[,1]
 
 ```
 
 ```{r}
+#Write out the predictions into a CSV file for analysis in Python
 write.csv(PVData,file="PVData_wGPpredictions.csv",row.names=FALSE)
 ```
 
 
 ```{r setup, include=FALSE}
+
+#Repeat steps above, now for Lhx6 data, replace the path below with your own path
 #########
 Lhx6File <- "~/Documents/original_data/firstTwoDataLhx6_shuffled_withAverages_notLogged.csv"	
 Lhx6Data <- read.csv(Lhx6File,stringsAsFactors=F)	

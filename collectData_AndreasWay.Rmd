@@ -10,6 +10,7 @@ library(kernlab)
 library(ggplot2)
 ```
 
+The first two code chunks involve reading in the data sets from the first set of measurements and reformatting them
 
 ```{r}
 #### Read in the CSV file with measurements (newer paired measurements) #####
@@ -67,6 +68,8 @@ measureAllF = measureAllF[rowIndices,]
 
 
 ```{r}
+#For each PV and Lhx6 dataset, train a GPR with degree = 2 on all the data
+
 useWaveV <- c("wave1","wave2");
 useParamV <- c("Duration","Frequency","Amplitude");
 useVarV <- useParamV;
@@ -114,26 +117,28 @@ for(curCellType in c("PV","Lhx6")) {
     #alpha(curSingleTestGp)
 }
 
+#Data structure containing the model trained on all the data
 multTestGpL
 ```
 
 
 ```{r}
-for(curCellType in c("Lhx6")) {
-    
-    useCellTypeV <- c(curCellType);
-
-    #relate mod index to duration in Lhx6 cells
-    curMeasureF <- measureAllF[which(!is.na(match(measureAllF$Cell.Type,useCellTypeV))),];
-    #curMeasureF <- curMeasureF[which(!is.na(match(curMeasureF$study,useWaveV))),];
-    curMeasureF <- curMeasureF[which(!is.na(apply(as.matrix(curMeasureF[,useVarV]),1,sum))),];
-    curMeasureF <- curMeasureF[which(!is.na(curMeasureF[,"Modulation.Index"])),];
-
-    curMeasureF$Duration <- log2(curMeasureF$Duration );
-    
-    
-    write.csv(curMeasureF,file="Lhx6_oldData_Redo.csv",row.names=FALSE)
-}
+#Old code, ignore
+# for(curCellType in c("Lhx6")) {
+#     
+#     useCellTypeV <- c(curCellType);
+# 
+#     #relate mod index to duration in Lhx6 cells
+#     curMeasureF <- measureAllF[which(!is.na(match(measureAllF$Cell.Type,useCellTypeV))),];
+#     #curMeasureF <- curMeasureF[which(!is.na(match(curMeasureF$study,useWaveV))),];
+#     curMeasureF <- curMeasureF[which(!is.na(apply(as.matrix(curMeasureF[,useVarV]),1,sum))),];
+#     curMeasureF <- curMeasureF[which(!is.na(curMeasureF[,"Modulation.Index"])),];
+# 
+#     curMeasureF$Duration <- log2(curMeasureF$Duration );
+#     
+#     
+#     write.csv(curMeasureF,file="Lhx6_oldData_Redo.csv",row.names=FALSE)
+# }
 ```
 
 
@@ -146,6 +151,7 @@ Lhx6Model <- multTestGpL[["Lhx6"]]
 ```{r}
 ###proceed to do predictions###
 
+#This function to help generate artificial prediction points
 getBreaks <- function(min,max,scale){
     numVals <- (max - min)*(1/scale)	
     x <- c(0:(numVals));	
@@ -153,33 +159,44 @@ getBreaks <- function(min,max,scale){
     return(y);	
 }
 
-#include full range Teresa tried
+#Generate duration points
 durationV <- c(getBreaks(0,2500,20),getBreaks(3000,30000,1000));
+
+#Generate frequency points
 freqV <- getBreaks(0,200,5);
+
+#Generate amplitude points
 ampV <- getBreaks(0.5,2.5,0.05);	
 
+#log the duration
 durationV <- log2(durationV);
 
 iter1_addedFrequecies <- data.frame(matrix(ncol=6,nrow=1),stringsAsFactors = F)	
 names(iter1_addedFrequecies) <- c("duration","frequency","ampmult","predictionPV","predictionLhx6","difference")
 counter = 1	
+#Go through every possible combination of duration-frequency-amplitude
 for(curDur in durationV) {	
   print(counter)
   counter <- counter+1	
     for(curFreq in freqV) {	
         for(curAmp in ampV){	
+            #Perform prediction on this combiation
             testingVal <- data.frame(curDur,curFreq,curAmp)	
             predictionPV <- predict(PVModel,testingVal)	
             predictionLhx6 <- predict(Lhx6Model,testingVal)
             difference = predictionPV-predictionLhx6
+            #Store the predictions and difference between the predictions
             iter1_addedFrequecies <- rbind(iter1_addedFrequecies,
                                                    list(curDur,curFreq,curAmp,predictionPV,predictionLhx6,difference))	
         }	
     }	
 }	
-#iter1_addedFrequencies <- iter1_addedFrequencies[-c(1),]
+
+#Write out the predictions and differences to a csv file
+#This line is old though, ignore
 write.csv(iter1_addedFrequecies,file="iter1_addedFrequencies.csv",row.names=FALSE)
 
+#Old code below, ignore
 #predictedAmpMult2_5_Shuffled <- subset(predictedValsReal_Shuffled_ALLDATA, ampmult==2.50,c("duration","frequency","difference"))
 #write.csv(predictedAmpMult2_5_Shuffled,file="predictedAmpMult2_5notshuffled_old_complete_retesting.csv",row.names=FALSE)
  
@@ -202,26 +219,30 @@ write.csv(iter1_addedFrequecies,file="iter1_addedFrequencies.csv",row.names=FALS
 
 
 ```{r}
-iter1_allParams = iter1_addedFrequecies[-c(1),]
-write.csv(iter1_allParams,file="iter1_allParams.csv",row.names=FALSE)
-
-iter1_amp25 <- subset(iter1_allParams, ampmult==2.50,c("duration","frequency","difference"))
-write.csv(iter1_amp25,file="iter1_amp25.csv",row.names=FALSE)
-
-iter1_amp20 <- subset(iter1_allParams, ampmult==2.00,c("duration","frequency","difference"))
-write.csv(iter1_amp20,file="iter1_amp20.csv",row.names=FALSE)
-
-iter1_amp15 <- subset(iter1_allParams, ampmult==1.50,c("duration","frequency","difference"))
-write.csv(iter1_amp15,file="iter1_amp15.csv",row.names=FALSE)
-
-iter1_amp10 <- subset(iter1_allParams, ampmult==1.00,c("duration","frequency","difference"))
-write.csv(iter1_amp10,file="iter1_amp10.csv",row.names=FALSE)
-
-iter1_amp05 <- subset(iter1_allParams, ampmult==0.50,c("duration","frequency","difference"))
-write.csv(iter1_amp05,file="iter1_amp05.csv",row.names=FALSE)
+#### Old code, ignore
+#Write out predictions and differences to a new file
+# iter1_allParams = iter1_addedFrequecies[-c(1),]
+# write.csv(iter1_allParams,file="iter1_allParams.csv",row.names=FALSE)
+# 
+# #Separate by amplitude for Teresa to plot
+# iter1_amp25 <- subset(iter1_allParams, ampmult==2.50,c("duration","frequency","difference"))
+# write.csv(iter1_amp25,file="iter1_amp25.csv",row.names=FALSE)
+# 
+# iter1_amp20 <- subset(iter1_allParams, ampmult==2.00,c("duration","frequency","difference"))
+# write.csv(iter1_amp20,file="iter1_amp20.csv",row.names=FALSE)
+# 
+# iter1_amp15 <- subset(iter1_allParams, ampmult==1.50,c("duration","frequency","difference"))
+# write.csv(iter1_amp15,file="iter1_amp15.csv",row.names=FALSE)
+# 
+# iter1_amp10 <- subset(iter1_allParams, ampmult==1.00,c("duration","frequency","difference"))
+# write.csv(iter1_amp10,file="iter1_amp10.csv",row.names=FALSE)
+# 
+# iter1_amp05 <- subset(iter1_allParams, ampmult==0.50,c("duration","frequency","difference"))
+# write.csv(iter1_amp05,file="iter1_amp05.csv",row.names=FALSE)
 ```
 
 ```{r}
+#Get rid of NaNs, re-generate files
 iter1_allParams_noNans = iter1_allParams[complete.cases(iter1_allParams),]
 write.csv(iter1_allParams_noNans,file="iter1_allParams_noNans.csv",row.names=FALSE)
 
@@ -243,14 +264,17 @@ write.csv(iter1_amp25_noNans,file="iter1_amp05_noNans.csv",row.names=FALSE)
 
 
 ```{r}
+#Old code, ignore
 ### read in third dataset ###
 
-measureThird <- "Pfenning_Data_set_3.csv";
-measureThird <- read.csv(measureThird,stringsAsFactors = F);
-measureThird$mi <- measureThird$Modulation.Index;
-measureThird$study <- "wave3";
-measureThird$Amplitude <- measureThird$AmpMult
-measureThirdAll <- rbind(measureAllF,measureThird[,colnames(measureAllF)])
+# measureThird <- "Pfenning_Data_set_3.csv";
+# measureThird <- read.csv(measureThird,stringsAsFactors = F);
+# measureThird$mi <- measureThird$Modulation.Index;
+# measureThird$study <- "wave3";
+# measureThird$Amplitude <- measureThird$AmpMult
+
+#Concatenate new dataset measurements to old dataset measurements
+# measureThirdAll <- rbind(measureAllF,measureThird[,colnames(measureAllF)])
 ```
 
 
@@ -267,6 +291,7 @@ polyVarL[["offset"]] <- 1;
 
 multTestGpLAllOld <- vector("list",0);
 
+#Generate GPRs on PV and Lhx6 data
 for(curCellType in c("PV","Lhx6")) {
     
     useCellTypeV <- c(curCellType);
@@ -353,108 +378,108 @@ write.csv(predictedValsReal_alloldData_Redo,file="predictedValsReal_alloldData_3
 
 See if randomly shuffling all three old PV and Lhx6 datasets, training models on each gives different predictions
 ```{r}
-useWaveV <- c("wave1","wave2");
-useParamV <- c("Duration","Frequency","Amplitude");
-useVarV <- useParamV;
-
-useKernal <- "polydot";
-polyVarL <- vector("list",0);
-polyVarL[["degree"]] <- 2;
-polyVarL[["scale"]] <- 1;
-polyVarL[["offset"]] <- 1;
-
-multTestGpLAllOld_Shuffled <- vector("list",0);
-
-for(curCellType in c("PV","Lhx6")) {
-    
-    useCellTypeV <- c(curCellType);
-
-    #relate mod index to duration in PV cells
-    curMeasureF <- measureThirdAll[which(!is.na(match(measureThirdAll$Cell.Type,useCellTypeV))),];
-    #curMeasureF <- curMeasureF[which(!is.na(match(curMeasureF$study,useWaveV))),];
- 
-    ### random part ###
-    if(useCellTypeV=="PV"){
-        set.seed(100);
-    }
-    else {
-      set.seed(3);
-    }
-  
-    rows <- sample(nrow(curMeasureF));
-    curMeasureF_Shuffled <- curMeasureF[rows,]
-    ### end of random part ###
-    
-    curMeasureF_Shuffled <- curMeasureF_Shuffled[which(!is.na(apply(as.matrix(curMeasureF_Shuffled[,useVarV]),1,sum))),];
-    curMeasureF_Shuffled <- curMeasureF_Shuffled[which(!is.na(curMeasureF_Shuffled[,"Modulation.Index"])),];
-
-    curMeasureF_Shuffled$Duration <- log2(curMeasureF_Shuffled$Duration );
-    
-    MiV <- curMeasureF_Shuffled$Modulation.Index;
-    TestVarM <- as.matrix(curMeasureF_Shuffled[,useVarV]);
-    #colnames(TestVarM) <- "testVar";
-
-    if(useKernal == "polydot") {
-        curMultTestGp <- gausspr(x=TestVarM,
-                                y=MiV,
-                                type="regression", 
-                                variance.model=TRUE,
-                                kernel=useKernal,
-                                kpar=polyVarL);
-    } else {
-        curMultTestGp <- gausspr(x=TestVarM,
-                                y=MiV,
-                                type="regression", 
-                                variance.model=TRUE,
-                                kernel=useKernal);
-    }
-
-    multTestGpLAllOld_Shuffled[[curCellType]] <- curMultTestGp
-    #alpha(curSingleTestGp)
-}
-
-multTestGpLAllOld_Shuffled
+# useWaveV <- c("wave1","wave2");
+# useParamV <- c("Duration","Frequency","Amplitude");
+# useVarV <- useParamV;
+# 
+# useKernal <- "polydot";
+# polyVarL <- vector("list",0);
+# polyVarL[["degree"]] <- 2;
+# polyVarL[["scale"]] <- 1;
+# polyVarL[["offset"]] <- 1;
+# 
+# multTestGpLAllOld_Shuffled <- vector("list",0);
+# 
+# for(curCellType in c("PV","Lhx6")) {
+#     
+#     useCellTypeV <- c(curCellType);
+# 
+#     #relate mod index to duration in PV cells
+#     curMeasureF <- measureThirdAll[which(!is.na(match(measureThirdAll$Cell.Type,useCellTypeV))),];
+#     #curMeasureF <- curMeasureF[which(!is.na(match(curMeasureF$study,useWaveV))),];
+#  
+#     ### random part ###
+#     if(useCellTypeV=="PV"){
+#         set.seed(100);
+#     }
+#     else {
+#       set.seed(3);
+#     }
+#   
+#     rows <- sample(nrow(curMeasureF));
+#     curMeasureF_Shuffled <- curMeasureF[rows,]
+#     ### end of random part ###
+#     
+#     curMeasureF_Shuffled <- curMeasureF_Shuffled[which(!is.na(apply(as.matrix(curMeasureF_Shuffled[,useVarV]),1,sum))),];
+#     curMeasureF_Shuffled <- curMeasureF_Shuffled[which(!is.na(curMeasureF_Shuffled[,"Modulation.Index"])),];
+# 
+#     curMeasureF_Shuffled$Duration <- log2(curMeasureF_Shuffled$Duration );
+#     
+#     MiV <- curMeasureF_Shuffled$Modulation.Index;
+#     TestVarM <- as.matrix(curMeasureF_Shuffled[,useVarV]);
+#     #colnames(TestVarM) <- "testVar";
+# 
+#     if(useKernal == "polydot") {
+#         curMultTestGp <- gausspr(x=TestVarM,
+#                                 y=MiV,
+#                                 type="regression", 
+#                                 variance.model=TRUE,
+#                                 kernel=useKernal,
+#                                 kpar=polyVarL);
+#     } else {
+#         curMultTestGp <- gausspr(x=TestVarM,
+#                                 y=MiV,
+#                                 type="regression", 
+#                                 variance.model=TRUE,
+#                                 kernel=useKernal);
+#     }
+# 
+#     multTestGpLAllOld_Shuffled[[curCellType]] <- curMultTestGp
+#     #alpha(curSingleTestGp)
+# }
+# 
+# multTestGpLAllOld_Shuffled
 ```
 
 ```{r}
-PVModelAllOld_Shuffled <- multTestGpLAllOld_Shuffled[["PV"]]
-Lhx6ModelAllOld_Shuffled <- multTestGpLAllOld_Shuffled[["Lhx6"]]
+# PVModelAllOld_Shuffled <- multTestGpLAllOld_Shuffled[["PV"]]
+# Lhx6ModelAllOld_Shuffled <- multTestGpLAllOld_Shuffled[["Lhx6"]]
 ```
 
 ```{r}
 ###proceed to do predictions###
 
-getBreaks <- function(min,max,scale){
-    numVals <- (max - min)*(1/scale)	
-    x <- c(0:(numVals));	
-    y <- (x * scale) + min;	
-    return(y);	
-}
-
-#include full range Teresa tried
-durationV <- c(getBreaks(200,2500,20),getBreaks(3000,30000,1000));
-freqV <- getBreaks(125,200,5);
-ampV <- getBreaks(0.5,2.5,0.05);	
-
-durationV <- log2(durationV);
-
-predictedValsReal_alloldData_Redo_Shuffled <- data.frame(matrix(ncol=6,nrow=1),stringsAsFactors = F)	
-names(predictedValsReal_alloldData_Redo_Shuffled) <- c("duration","frequency","ampmult","predictionPV","predictionLhx6","difference")
-counter = 1	
-for(curDur in durationV) {	
-  print(counter)
-  counter <- counter+1	
-    for(curFreq in freqV) {	
-        for(curAmp in ampV){	
-            testingVal <- data.frame(curDur,curFreq,curAmp)	
-            predictionPV <- predict(PVModelAllOld_Shuffled,testingVal)	
-            predictionLhx6 <- predict(Lhx6ModelAllOld_Shuffled,testingVal)
-            difference = predictionPV-predictionLhx6
-            predictedValsReal_alloldData_Redo_Shuffled <- rbind(predictedValsReal_alloldData_Redo_Shuffled,
-                                                   list(curDur,curFreq,curAmp,predictionPV,predictionLhx6,difference))	
-        }	
-    }	
-}	
-predictedValsReal_alloldData_Redo_Shuffled <- predictedValsReal_alloldData_Redo_Shuffled[-c(1),]
-write.csv(predictedValsReal_alloldData_Redo_Shuffled,file="predictedValsReal_alloldData_Redo_Shuffled.csv",row.names=FALSE)
+# getBreaks <- function(min,max,scale){
+#     numVals <- (max - min)*(1/scale)	
+#     x <- c(0:(numVals));	
+#     y <- (x * scale) + min;	
+#     return(y);	
+# }
+# 
+# #include full range Teresa tried
+# durationV <- c(getBreaks(200,2500,20),getBreaks(3000,30000,1000));
+# freqV <- getBreaks(125,200,5);
+# ampV <- getBreaks(0.5,2.5,0.05);	
+# 
+# durationV <- log2(durationV);
+# 
+# predictedValsReal_alloldData_Redo_Shuffled <- data.frame(matrix(ncol=6,nrow=1),stringsAsFactors = F)	
+# names(predictedValsReal_alloldData_Redo_Shuffled) <- c("duration","frequency","ampmult","predictionPV","predictionLhx6","difference")
+# counter = 1	
+# for(curDur in durationV) {	
+#   print(counter)
+#   counter <- counter+1	
+#     for(curFreq in freqV) {	
+#         for(curAmp in ampV){	
+#             testingVal <- data.frame(curDur,curFreq,curAmp)	
+#             predictionPV <- predict(PVModelAllOld_Shuffled,testingVal)	
+#             predictionLhx6 <- predict(Lhx6ModelAllOld_Shuffled,testingVal)
+#             difference = predictionPV-predictionLhx6
+#             predictedValsReal_alloldData_Redo_Shuffled <- rbind(predictedValsReal_alloldData_Redo_Shuffled,
+#                                                    list(curDur,curFreq,curAmp,predictionPV,predictionLhx6,difference))	
+#         }	
+#     }	
+# }	
+# predictedValsReal_alloldData_Redo_Shuffled <- predictedValsReal_alloldData_Redo_Shuffled[-c(1),]
+# write.csv(predictedValsReal_alloldData_Redo_Shuffled,file="predictedValsReal_alloldData_Redo_Shuffled.csv",row.names=FALSE)
 ```
